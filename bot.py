@@ -81,28 +81,13 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_postno(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await postno(update, context)
     
-# ---------- Main ----------
-def main() -> None:
-    import threading
-    from http.server import BaseHTTPRequestHandler, HTTPServer
+# ---------------------------- Main -------------------------------------
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
-    if not BOT_TOKEN:
-        raise RuntimeError("BOT_TOKEN env-var missing.")
 
-    # 1) start the bot (long-polling) in a thread
-    def bot_thread() -> None:
-        app: Application = (
-            ApplicationBuilder().token(BOT_TOKEN).build()
-        )
-        app.add_handler(CommandHandler("start", cmd_start))
-        app.add_handler(CommandHandler("upload", upload))
-        app.add_handler(MessageHandler(filters.Regex(POSTNO_RE), postno))
-        log.info("Bot running (polling).")
-        app.run_polling()
-
-    threading.Thread(target=bot_thread, daemon=True).start()
-
-    # 2) tiny HTTP server so Render sees an open port
+def _start_health_server() -> None:
+    """Tiny HTTP server so Render sees an open port."""
     port = int(os.getenv("PORT", "8080"))
 
     class Ping(BaseHTTPRequestHandler):
@@ -112,9 +97,28 @@ def main() -> None:
             self.end_headers()
             self.wfile.write(b"OK")
 
-    log.info("Starting dummy web server on port %s", port)
+        def log_message(self, *_):  # silence default logging
+            return
+
+    logger.info("Health server listening on port %s", port)
     HTTPServer(("0.0.0.0", port), Ping).serve_forever()
 
+
+def main() -> None:
+    if not BOT_TOKEN:
+        raise RuntimeError("BOT_TOKEN env variable is missing.")
+
+    # 1) health-check web server in a background thread
+    threading.Thread(target=_start_health_server, daemon=True).start()
+
+    # 2) Telegram bot in the main thread
+    app: Application = ApplicationBuilder().token(BOT_TOKEN).build()
+    app.add_handler(CommandHandler("start", cmd_start))
+    app.add_handler(CommandHandler("upload", upload))
+    app.add_handler(MessageHandler(filters.Regex(POSTNO_RE), postno))
+
+    logger.info("Bot running – polling …")
+    app.run_polling()               # blocks here
 
 if __name__ == "__main__":
     main()
