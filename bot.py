@@ -4,7 +4,7 @@ Telegram gplink bot
 
 Public:
   /postno00042          – anyone gets the link
-Admin (IDs in ADMIN_IDS):
+Admin (7655961867):
   /upload <post> <url>  – store/override link (persists in links.json)
 """
 
