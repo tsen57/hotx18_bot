@@ -76,14 +76,38 @@ async def upload(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 
 # ---------- Main ----------
 def main() -> None:
+    import threading
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
     if not BOT_TOKEN:
         raise RuntimeError("BOT_TOKEN env-var missing.")
-    app: Application = ApplicationBuilder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("upload", upload))
-    app.add_handler(MessageHandler(filters.Regex(POSTNO_RE), postno))
-    log.info("Bot starting – polling …")
-    app.run_polling()          # blocking; no asyncio.run()
+
+    # 1) start the bot (long-polling) in a thread
+    def bot_thread() -> None:
+        app: Application = (
+            ApplicationBuilder().token(BOT_TOKEN).build()
+        )
+        app.add_handler(CommandHandler("start", cmd_start))
+        app.add_handler(CommandHandler("upload", upload))
+        app.add_handler(MessageHandler(filters.Regex(POSTNO_RE), postno))
+        log.info("Bot running (polling).")
+        app.run_polling()
+
+    threading.Thread(target=bot_thread, daemon=True).start()
+
+    # 2) tiny HTTP server so Render sees an open port
+    port = int(os.getenv("PORT", "8080"))
+
+    class Ping(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain")
+            self.end_headers()
+            self.wfile.write(b"OK")
+
+    log.info("Starting dummy web server on port %s", port)
+    HTTPServer(("0.0.0.0", port), Ping).serve_forever()
+
 
 if __name__ == "__main__":
     main()
