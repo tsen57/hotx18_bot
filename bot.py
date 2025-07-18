@@ -151,11 +151,8 @@ def main() -> None:
 
     application: Application = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    # public commands
     application.add_handler(CommandHandler("start", cmd_start))
     application.add_handler(MessageHandler(filters.Regex(POSTNO_RE), handle_postno))
-
-    # admin command
     application.add_handler(CommandHandler("upload", cmd_upload))
 
     logger.info("Bot starting – polling …")
