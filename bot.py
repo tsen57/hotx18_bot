@@ -73,7 +73,14 @@ async def upload(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     LINKS[num] = ctx.args[1]
     save_links()
     await update.message.reply_text(f"✅ Saved custom link for post {num:05d}.")
+    
+# Aliases for compatibility
+async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await start(update, context)
 
+async def handle_postno(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await postno(update, context)
+    
 # ---------- Main ----------
 def main() -> None:
     import threading
